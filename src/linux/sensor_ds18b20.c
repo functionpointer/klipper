@@ -59,7 +59,8 @@ struct ds18_s {
 
 // Lock ds18_s mutex, set error status and message, unlock mutex.
 static void
-locking_handle_read_error(struct ds18_s *d, const char* last_data, const char *error)
+locking_handle_read_error(struct ds18_s *d, const char* last_data
+                          , const char *error)
 {
     pthread_mutex_lock(&d->lock);
     d->error = error;
@@ -193,7 +194,8 @@ fail4:
 fail5:
     shutdown("Could not start DS18B20 reader thread");
 }
-DECL_COMMAND(command_config_ds18b20, "config_ds18b20 oid=%c serial=%*s max_error_count=%c");
+DECL_COMMAND(command_config_ds18b20,
+             "config_ds18b20 oid=%c serial=%*s max_error_count=%c");
 
 void
 command_query_ds18b20(uint32_t *args)

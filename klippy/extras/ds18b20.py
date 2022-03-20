@@ -25,15 +25,16 @@ class DS18B20:
         )
         self._mcu = mcu.get_printer_mcu(self.printer, config.get('sensor_mcu'))
         self.oid = self._mcu.create_oid()
-        self.max_error_count = config.getint('max_consecutive_errors', 0, minval=0, maxval=127)
+        self.max_error_count = config.getint(
+            'max_consecutive_errors', 0, minval=0, maxval=127)
         self._mcu.register_response(self._handle_ds18b20_response,
             "ds18b20_result", self.oid)
         self._mcu.register_config_callback(self._build_config)
 
     def _build_config(self):
         sid = "".join(["%02x" % (x,) for x in self.sensor_id])
-        self._mcu.add_config_cmd("config_ds18b20 oid=%d serial=%s max_error_count=%d"
-                                 % (self.oid, sid, self.max_error_count))
+        self._mcu.add_config_cmd("config_ds18b20 oid=%d serial=%s"
+            " max_error_count=%d" % (self.oid, sid, self.max_error_count))
 
         clock = self._mcu.get_query_slot(self.oid)
         self._report_clock = self._mcu.seconds_to_clock(self.report_time)
