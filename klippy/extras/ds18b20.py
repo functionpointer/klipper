@@ -10,6 +10,7 @@ DS18_REPORT_TIME = 3.0
 # Temperature can be sampled at any time but conversion time is ~750ms, so
 # setting the time too low will not make the reports come faster.
 DS18_MIN_REPORT_TIME = 1.0
+DS18_MAX_CONSECUTIVE_ERRORS = 4
 
 class DS18B20:
     def __init__(self, config):
@@ -25,8 +26,6 @@ class DS18B20:
         )
         self._mcu = mcu.get_printer_mcu(self.printer, config.get('sensor_mcu'))
         self.oid = self._mcu.create_oid()
-        self.max_error_count = config.getint(
-            'max_consecutive_errors', 0, minval=0, maxval=127)
         self._mcu.register_response(self._handle_ds18b20_response,
             "ds18b20_result", self.oid)
         self._mcu.register_config_callback(self._build_config)
@@ -34,7 +33,7 @@ class DS18B20:
     def _build_config(self):
         sid = "".join(["%02x" % (x,) for x in self.sensor_id])
         self._mcu.add_config_cmd("config_ds18b20 oid=%d serial=%s"
-            " max_error_count=%d" % (self.oid, sid, self.max_error_count))
+            " max_error_count=%d" % (self.oid, sid, DS18_MAX_CONSECUTIVE_ERRORS))
 
         clock = self._mcu.get_query_slot(self.oid)
         self._report_clock = self._mcu.seconds_to_clock(self.report_time)

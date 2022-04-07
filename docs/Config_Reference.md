@@ -2287,8 +2287,6 @@ serial_no:
 #   Interval in seconds between readings. Default is 3.0, with a minimum of 1.0
 #sensor_mcu:
 #   The micro-controller to read from. Must be the host_mcu
-#max_consecutive_errors: 0
-#   Maximum number of read failures before the printer is shut down. Useful for ignoring spurious read errors. You shouldn't need this higher than 3.
 ```
 
 ## Fans
