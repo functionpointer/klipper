@@ -13,7 +13,6 @@
 #include <time.h> // clock_gettime
 #include "basecmd.h" // oid_alloc
 #include "board/irq.h" // irq_disable
-#include "board/misc.h" // output
 #include "command.h" // DECL_COMMAND
 #include "internal.h" // report_errno
 #include "sched.h" // DECL_SHUTDOWN
@@ -51,23 +50,18 @@ struct ds18_s {
     int temperature;
     struct timespec request_time;
     uint8_t status;
-    const char* error;
-    char error_last_data[128];
     uint8_t error_count;
     uint8_t max_error_count;
 };
 
 // Lock ds18_s mutex, set error status and message, unlock mutex.
 static void
-locking_handle_read_error(struct ds18_s *d, const char* last_data
-                          , const char *error)
+locking_handle_read_error(struct ds18_s *d, const char* last_data)
 {
     pthread_mutex_lock(&d->lock);
-    d->error = error;
     d->status = W1_ERROR;
-    memcpy(d->error_last_data, last_data, 128);
     d->error_count++;
-    if(d->error_count <= d->max_error_count) {
+    if (d->error_count <= d->max_error_count) {
         pthread_mutex_unlock(&d->lock);
     } else {
         pthread_mutex_unlock(&d->lock);
@@ -100,14 +94,13 @@ reader_start_routine(void *param) {
         int ret = read(d->fd, data, sizeof(data)-1);
         if (ret < 0) {
             report_errno("read DS18B20", ret);
-            locking_handle_read_error(d, data, "Unable to read DS18B20");
+            locking_handle_read_error(d, data);
             continue;
         }
         data[ret] = '\0';
         char *temp_string = strstr(data, "t=");
         if (temp_string == NULL || temp_string[2] == '\0') {
-            locking_handle_read_error(d, data,
-            "Unable to find temperature value in DS18B20 report");
+            locking_handle_read_error(d, data);
             continue;
         }
         // Don't pass 't' and '=' to atoi
@@ -124,7 +117,7 @@ reader_start_routine(void *param) {
         ret = lseek(d->fd, 0, SEEK_SET);
         if (ret < 0) {
             report_errno("seek DS18B20", ret);
-            locking_handle_read_error(d, data, "Unable to seek DS18B20");
+            locking_handle_read_error(d, data);
             continue;
         }
     }
@@ -231,10 +224,8 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
     if (d->status == W1_ERROR) {
         // try_shutdown expects a static string. Output the specific error,
         // then shut down with a generic error.
-        d->error_last_data[127] = 0;
-        output("Error: %s, last data was %s", d->error, d->error_last_data);
         pthread_mutex_unlock(&d->lock);
-        if(d->error_count > d->max_error_count) {
+        if (d->error_count > d->max_error_count) {
             try_shutdown("Error reading DS18B20 sensor");
             return;
         } else {
@@ -269,10 +260,12 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
         if (request_time.tv_sec - d->request_time.tv_sec > W1_READ_TIMEOUT_SEC)
         {
             pthread_mutex_unlock(&d->lock);
+            //no response yet
             d->error_count++;
-            if(d->error_count <= d->max_error_count) {
-                output("DS18B20 sensor no response yet!");
+            if (d->error_count <= d->max_error_count) {
+                //tolerate the no-show
             } else {
+                //don't tolerate anymore!
                 try_shutdown("DS18B20 sensor didn't respond in time");
                 return;
             }
