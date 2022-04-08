@@ -257,16 +257,9 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
         // is too far in the past.
         if (request_time.tv_sec - d->request_time.tv_sec > W1_READ_TIMEOUT_SEC)
         {
-            //no response yet
-            d->error_count++;
-            if (d->error_count <= d->max_error_count) {
-                //tolerate the no-show
-            } else {
-                //don't tolerate anymore!
-                pthread_mutex_unlock(&d->lock);
-                try_shutdown("DS18B20 sensor didn't respond in time");
-                return;
-            }
+            pthread_mutex_unlock(&d->lock);
+            try_shutdown("DS18B20 sensor didn't respond in time");
+            return;
         }
     }
     pthread_cond_signal(&d->cond);
