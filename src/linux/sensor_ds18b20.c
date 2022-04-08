@@ -228,7 +228,7 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
             return;
         } else {
           sendf("ds18b20_result oid=%c next_clock=%u value=%i"
-                  , oid, next_begin_time, 0);
+                  , oid, next_begin_time, 0x7FFFFFFF);
           d->status = W1_READ_REQUESTED;
         }
     } else if (d->status == W1_IDLE) {

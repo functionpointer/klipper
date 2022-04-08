@@ -55,7 +55,9 @@ class DS18B20:
     def _handle_ds18b20_response(self, params):
         temp = params["value"] / 1000.0
 
-        if temp < self.min_temp or temp > self.max_temp:
+        if params["value"] == 0x7FFFFFFF:
+            temp = 0  # read error! report 0C and don't check temp range
+        elif temp < self.min_temp or temp > self.max_temp:
             self.printer.invoke_shutdown(
                 "DS18B20 temperature %0.1f outside range of %0.1f:%.01f"
                 % (temp, self.min_temp, self.max_temp)
