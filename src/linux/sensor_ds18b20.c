@@ -54,9 +54,9 @@ struct ds18_s {
     uint8_t max_error_count;
 };
 
-// Lock ds18_s mutex, set error status and message, unlock mutex.
+// Lock ds18_s mutex, set error status, unlock mutex.
 static void
-locking_handle_read_error(struct ds18_s *d, const char* last_data)
+locking_handle_read_error(struct ds18_s *d)
 {
     pthread_mutex_lock(&d->lock);
     d->status = W1_ERROR;
@@ -94,13 +94,13 @@ reader_start_routine(void *param) {
         int ret = read(d->fd, data, sizeof(data)-1);
         if (ret < 0) {
             report_errno("read DS18B20", ret);
-            locking_handle_read_error(d, data);
+            locking_handle_read_error(d);
             continue;
         }
         data[ret] = '\0';
         char *temp_string = strstr(data, "t=");
         if (temp_string == NULL || temp_string[2] == '\0') {
-            locking_handle_read_error(d, data);
+            locking_handle_read_error(d);
             continue;
         }
         // Don't pass 't' and '=' to atoi
@@ -117,7 +117,7 @@ reader_start_routine(void *param) {
         ret = lseek(d->fd, 0, SEEK_SET);
         if (ret < 0) {
             report_errno("seek DS18B20", ret);
-            locking_handle_read_error(d, data);
+            locking_handle_read_error(d);
             continue;
         }
     }
@@ -222,16 +222,14 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
 
     pthread_mutex_lock(&d->lock);
     if (d->status == W1_ERROR) {
-        // try_shutdown expects a static string. Output the specific error,
-        // then shut down with a generic error.
-        pthread_mutex_unlock(&d->lock);
         if (d->error_count > d->max_error_count) {
             try_shutdown("Error reading DS18B20 sensor");
+            pthread_mutex_unlock(&d->lock);
             return;
         } else {
           sendf("ds18b20_result oid=%c next_clock=%u value=%i"
                   , oid, next_begin_time, 0);
-          d->status = W1_IDLE;
+          d->status = W1_READ_REQUESTED;
         }
     } else if (d->status == W1_IDLE) {
         // This happens the first time requesting a temperature.
@@ -259,13 +257,13 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
         // is too far in the past.
         if (request_time.tv_sec - d->request_time.tv_sec > W1_READ_TIMEOUT_SEC)
         {
-            pthread_mutex_unlock(&d->lock);
             //no response yet
             d->error_count++;
             if (d->error_count <= d->max_error_count) {
                 //tolerate the no-show
             } else {
                 //don't tolerate anymore!
+                pthread_mutex_unlock(&d->lock);
                 try_shutdown("DS18B20 sensor didn't respond in time");
                 return;
             }
