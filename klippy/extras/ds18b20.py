@@ -55,7 +55,7 @@ class DS18B20:
     def _handle_ds18b20_response(self, params):
         temp = params["value"] / 1000.0
 
-        if params["value"] == 0x7FFFFFFF:
+        if params["fault"] != 0:
             temp = 0  # read error! report 0C and don't check temp range
         elif temp < self.min_temp or temp > self.max_temp:
             self.printer.invoke_shutdown(

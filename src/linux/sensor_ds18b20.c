@@ -227,8 +227,8 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
             pthread_mutex_unlock(&d->lock);
             return;
         } else {
-          sendf("ds18b20_result oid=%c next_clock=%u value=%i"
-                  , oid, next_begin_time, 0x7FFFFFFF);
+          sendf("ds18b20_result oid=%c next_clock=%u value=%i fault=%u"
+                  , oid, next_begin_time, d->temperature, d->error_count);
           d->status = W1_READ_REQUESTED;
         }
     } else if (d->status == W1_IDLE) {
@@ -238,8 +238,8 @@ ds18_send_and_request(struct ds18_s *d, uint32_t next_begin_time, uint8_t oid)
         d->status = W1_READ_REQUESTED;
     } else if (d->status == W1_READY) {
         // Report the previous temperature and request a new one.
-        sendf("ds18b20_result oid=%c next_clock=%u value=%i"
-              , oid, next_begin_time, d->temperature);
+        sendf("ds18b20_result oid=%c next_clock=%u value=%i fault=%u"
+              , oid, next_begin_time, d->temperature, 0);
         if (d->temperature < d->min_value || d->temperature > d->max_value) {
             pthread_mutex_unlock(&d->lock);
             try_shutdown("DS18B20 out of range");
